@@ -143,20 +143,7 @@ export class MainMenuState extends GameState {
                 <div class="mainContainer">
                     <div class="buttons"></div>
                     <div class="savegamesMount"></div>
-                    ${
-                        hasSteamBridge && (G_IS_STANDALONE || !WEB_STEAM_SSO_AUTHENTICATED)
-                            ? `<div class="steamSso">
-                                <span class="description">${
-                                    G_IS_STANDALONE
-                                        ? T.mainMenu.playFullVersionStandalone
-                                        : T.mainMenu.playFullVersionV2
-                                }</span>
-                                <a class="ssoSignIn" target="_blank" href="${
-                                    this.app.clientApi.getEndpoint() + "/v1/noauth/steam-sso"
-                                }">Sign in</a>
-                            </div>`
-                            : ""
-                    }
+
                     ${
                         hasSteamBridge && WEB_STEAM_SSO_AUTHENTICATED
                             ? `
