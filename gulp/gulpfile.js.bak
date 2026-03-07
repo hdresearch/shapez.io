@@ -93,7 +93,7 @@ gulp.task("utils.cleanImageBuildFolder", () => {
 
 gulp.task(
     "utils.cleanup",
-    gulp.series("utils.cleanBuildFolder", "utils.cleanImageBuildFolder")
+    gulp.series("utils.cleanBuildFolder", "utils.cleanImageBuildFolder", "utils.cleanBuildTempFolder")
 );
 
 // Requires no uncomitted files
@@ -226,7 +226,7 @@ gulp.task(
         "imgres.buildAtlas",
         "imgres.atlasToJson",
         "imgres.atlas",
-        // "sounds.dev", // Disabled for quick dev
+        "sounds.dev",
         "imgres.copyImageResources",
         "imgres.copyNonImageResources",
         "translations.fullBuild",
