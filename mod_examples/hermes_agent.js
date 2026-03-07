@@ -143,7 +143,27 @@ class Mod extends shapez.Mod {
     init() {
         console.log("[Hermes] Mod initializing...");
         
-        // Store prompts per provider type
+        // ====================================================================
+        // OVERRIDE TUTORIAL HINTS FOR HERMES AGENT
+        // ====================================================================
+        
+        this.modInterface.registerTranslations("en", {
+            ingame: {
+                interactiveTutorial: {
+                    title: "Hermes Agent Tutorial",
+                    hints: {
+                        "1_1_extractor": "Place an <strong>AI Prompt Source</strong> on a shape to start extracting AI requests!",
+                        "1_2_conveyor": "Connect the prompt source to the <strong>AI Hub</strong> with a <strong>Data Pipeline</strong> (conveyor belt)!<br><br>Tip: <strong>Double-click</strong> the prompt source to set your prompt!",
+                        "1_3_expand": "Build more prompt sources to process multiple AI requests! Use <strong>painters</strong> to route to different AI providers:<br>• <strong>Green</strong> → Gemini<br>• <strong>Red</strong> → Claude",
+                    },
+                },
+            },
+        });
+        
+        // Store prompts per entity (by entity uid)
+        this.entityPrompts = {};
+        
+        // Legacy provider-based prompts (for painted shapes)
         this.prompts = {
             gemini: "",
             anthropic: ""
@@ -155,9 +175,9 @@ class Mod extends shapez.Mod {
         // WebSocket connection to Hermes
         this.ws = null;
         this.wsConnected = false;
+        this.pendingRequests = [];
         
-        // Connect to Hermes WebSocket
-        this.connectWebSocket();
+        // Don't connect here - wait for game init
         
         const mod = this;
         
@@ -443,19 +463,18 @@ class Mod extends shapez.Mod {
         // INTERCEPT HUB DELIVERY TO TRIGGER AI
         // ====================================================================
         
-        this.modInterface.replaceMethod(
+        // Use runAfterMethod to add AI logic after the original hub processing
+        this.modInterface.runAfterMethod(
             shapez.ItemProcessorSystem,
             "process_HUB", 
             function(payload) {
-                const hubComponent = payload.entity.components.Hub;
-                if (!hubComponent) return;
-                
+                // Original method already ran - now add our AI logic
                 for (let i = 0; i < payload.inputCount; ++i) {
                     const item = payload.items.get(i);
                     if (!item) continue;
                     
                     // Check if it's a shape item
-                    if (item.getItemType() === "shape") {
+                    if (item.getItemType && item.getItemType() === "shape") {
                         const definition = item.definition;
                         const layers = definition.layers;
                         
@@ -465,30 +484,34 @@ class Mod extends shapez.Mod {
                             
                             if (firstQuad) {
                                 const color = firstQuad.color;
-                                const shapeType = firstQuad.subShape;
                                 
-                                // Only process circles
-                                if (shapeType === "circle") {
-                                    let provider = "gemini";
-                                    if (color === "red") {
-                                        provider = "anthropic";
-                                    }
-                                    
-                                    const prompt = mod.prompts[provider];
-                                    
-                                    if (prompt) {
-                                        mod.sendToAI(provider, prompt);
-                                    } else {
-                                        mod.showResponse("⚠️ No prompt set! Double-click an AI Prompt Source (miner) to configure.", "warning");
+                                // Only invoke AI for painted shapes (green = gemini, red = anthropic)
+                                // Unpainted/uncolored shapes are ignored
+                                if (color !== "green" && color !== "red") {
+                                    // Not a colored shape - don't invoke AI
+                                    continue;
+                                }
+                                
+                                // Determine provider based on color (set by painter block)
+                                let provider = color === "red" ? "anthropic" : "gemini";
+                                
+                                // Find any prompt set for this shape type
+                                let prompt = null;
+                                
+                                // Check entity-specific prompts (from double-clicked miners)
+                                for (const entityId in mod.entityPrompts) {
+                                    if (mod.entityPrompts[entityId]) {
+                                        prompt = mod.entityPrompts[entityId];
+                                        break; // Use first available prompt
                                     }
                                 }
+                                
+                                if (prompt) {
+                                    mod.sendToAI(provider, prompt);
+                                }
+                                // No warning if no prompt - just silently ignore
                             }
                         }
-                    }
-                    
-                    // Still track delivery for game progression
-                    if (item.definition) {
-                        this.root.hubGoals.handleDefinitionDelivered(item.definition);
                     }
                 }
             }
@@ -524,8 +547,12 @@ class Mod extends shapez.Mod {
                 mod.updateResponses();
             });
             
-            // Show welcome message
-            mod.showResponse("🤖 Hermes Agent active! Double-click miners to set prompts.", "success");
+            // Connect to WebSocket when game starts
+            console.log("[Hermes] Game ready, connecting WebSocket...");
+            mod.connectWebSocket();
+            
+            // Show initial message immediately
+            mod.showResponse("🤖 Hermes Agent loading...", "loading");
         });
         
         console.log("[Hermes] Mod initialized successfully");
@@ -537,16 +564,29 @@ class Mod extends shapez.Mod {
     
     connectWebSocket() {
         const mod = this;
+        
+        // Don't create multiple connections
+        if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+            console.log("[Hermes] WebSocket already connecting/connected, skipping. State:", this.ws.readyState);
+            return;
+        }
+        
+        console.log("[Hermes] Creating new WebSocket connection to ws://localhost:8765...");
+        
         try {
             this.ws = new WebSocket("ws://localhost:8765");
+            console.log("[Hermes] WebSocket object created, readyState:", this.ws.readyState);
             
-            this.ws.onopen = function() {
-                console.log("[Hermes] WebSocket connected");
+            this.ws.onopen = function(event) {
+                console.log("[Hermes] WebSocket OPEN!", event);
                 mod.wsConnected = true;
                 mod.showResponse("🔗 Connected to Hermes Agent", "success");
+                // Process any requests that were queued while connecting
+                mod.processPendingRequests();
             };
             
             this.ws.onmessage = function(event) {
+                console.log("[Hermes] WebSocket message received:", event.data.substring(0, 100));
                 try {
                     const data = JSON.parse(event.data);
                     mod.handleWebSocketMessage(data);
@@ -555,17 +595,20 @@ class Mod extends shapez.Mod {
                 }
             };
             
-            this.ws.onclose = function() {
-                console.log("[Hermes] WebSocket disconnected");
+            this.ws.onclose = function(event) {
+                console.log("[Hermes] WebSocket CLOSED! Code:", event.code, "Reason:", event.reason, "Clean:", event.wasClean);
                 mod.wsConnected = false;
+                mod.ws = null;
                 setTimeout(function() { mod.connectWebSocket(); }, 5000);
             };
             
             this.ws.onerror = function(error) {
-                console.error("[Hermes] WebSocket error:", error);
+                console.error("[Hermes] WebSocket ERROR:", error);
+                mod.wsConnected = false;
             };
         } catch (e) {
-            console.error("[Hermes] Failed to connect:", e);
+            console.error("[Hermes] Failed to create WebSocket:", e);
+            this.ws = null;
             setTimeout(function() { mod.connectWebSocket(); }, 5000);
         }
     }
@@ -586,21 +629,65 @@ class Mod extends shapez.Mod {
     // ========================================================================
     
     sendToAI(provider, prompt) {
-        if (!this.wsConnected || !this.ws) {
-            this.showResponse("⚠️ Not connected to Hermes. Reconnecting...", "warning");
+        console.log("[Hermes] sendToAI called:", provider, prompt);
+        
+        // Check WebSocket state
+        if (!this.ws || this.ws.readyState === WebSocket.CLOSED || this.ws.readyState === WebSocket.CLOSING) {
+            console.warn("[Hermes] No WebSocket or closed, connecting...");
             this.connectWebSocket();
+            // Queue this request
+            this.pendingRequests.push({provider, prompt});
+            this.showResponse("⚠️ Connecting to Hermes...", "warning");
+            return;
+        }
+        
+        const readyState = this.ws.readyState;
+        console.log("[Hermes] WebSocket readyState:", readyState, "(0=CONNECTING, 1=OPEN)");
+        
+        if (readyState === WebSocket.CONNECTING) {
+            // Queue and wait - don't spam retries
+            console.log("[Hermes] Still connecting, queuing request");
+            this.pendingRequests.push({provider, prompt});
+            if (this.pendingRequests.length === 1) {
+                // Only show message for first queued request
+                this.showResponse("⏳ Connecting to Hermes...", "loading");
+            }
+            return;
+        }
+        
+        if (readyState !== WebSocket.OPEN) {
+            console.warn("[Hermes] WebSocket not open (state=" + readyState + ")");
+            this.showResponse("❌ WebSocket not connected", "error");
             return;
         }
         
         const icon = provider === "gemini" ? "💚" : "❤️";
         this.showResponse(icon + " Asking " + provider.toUpperCase() + "...", "loading");
         
-        this.ws.send(JSON.stringify({
+        const message = JSON.stringify({
             type: "ai_request",
             request_id: Date.now().toString(),
             provider: provider,
             prompt: prompt
-        }));
+        });
+        console.log("[Hermes] Sending WebSocket message:", message);
+        
+        try {
+            this.ws.send(message);
+            console.log("[Hermes] Message sent successfully");
+        } catch (e) {
+            console.error("[Hermes] Failed to send message:", e);
+            this.showResponse("❌ Failed to send: " + e.message, "error");
+        }
+    }
+    
+    // Process any pending requests when connection opens
+    processPendingRequests() {
+        console.log("[Hermes] Processing", this.pendingRequests.length, "pending requests");
+        while (this.pendingRequests.length > 0) {
+            const req = this.pendingRequests.shift();
+            this.sendToAI(req.provider, req.prompt);
+        }
     }
     
     // ========================================================================
@@ -638,20 +725,7 @@ class Mod extends shapez.Mod {
                 
                 if (entity && entity.components && entity.components.Miner) {
                     console.log("[Hermes] Found miner!");
-                    // Found a miner - check what color it extracts
-                    const minerComp = entity.components.Miner;
-                    let provider = "gemini"; // default
-                    
-                    // Try to determine from the shape being mined
-                    if (minerComp.lastMiningShapeId) {
-                        const shapeId = minerComp.lastMiningShapeId;
-                        console.log("[Hermes] Miner shape ID:", shapeId);
-                        if (shapeId.indexOf("Cr") !== -1) { // Red circle
-                            provider = "anthropic";
-                        }
-                    }
-                    
-                    this.showPromptDialog(provider, entity);
+                    this.showPromptDialog(null, entity);
                     return;
                 }
             }
@@ -678,10 +752,11 @@ class Mod extends shapez.Mod {
         dialog.style.cssText = "display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #4ecdc4;border-radius:12px;padding:24px;z-index:100000;min-width:400px;max-width:600px;box-shadow:0 20px 60px rgba(0,0,0,0.5);font-family:sans-serif;";
         
         dialog.innerHTML = '<div style="display:flex;align-items:center;margin-bottom:16px;">' +
-            '<span id="hermes-dialog-icon" style="font-size:32px;margin-right:12px;">💚</span>' +
-            '<div><h2 id="hermes-dialog-title" style="margin:0;color:#fff;font-size:18px;">Set Gemini Prompt</h2>' +
-            '<p style="margin:4px 0 0;color:#888;font-size:12px;">This prompt will be sent when circles reach the hub</p></div></div>' +
+            '<span id="hermes-dialog-icon" style="font-size:32px;margin-right:12px;">🤖</span>' +
+            '<div><h2 id="hermes-dialog-title" style="margin:0;color:#fff;font-size:18px;">Set Prompt</h2>' +
+            '<p style="margin:4px 0 0;color:#888;font-size:12px;">This prompt will be sent when shapes reach the AI Hub. Use painters to choose provider (green=Gemini, red=Claude)</p></div></div>' +
             '<textarea id="hermes-prompt-input" placeholder="Enter your prompt here..." style="width:100%;height:120px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e6edf3;padding:12px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>' +
+            '<p style="margin:8px 0 0;color:#666;font-size:11px;">Press Ctrl+Enter to save, Escape to cancel</p>' +
             '<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:16px;">' +
             '<button id="hermes-cancel-btn" style="padding:10px 20px;background:transparent;border:1px solid #30363d;border-radius:6px;color:#888;cursor:pointer;">Cancel</button>' +
             '<button id="hermes-save-btn" style="padding:10px 24px;background:linear-gradient(135deg,#4ecdc4,#44a08d);border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600;">Save Prompt</button></div>';
@@ -694,9 +769,10 @@ class Mod extends shapez.Mod {
         document.getElementById("hermes-save-btn").onclick = function() {
             const input = document.getElementById("hermes-prompt-input");
             const prompt = input.value.trim();
-            if (mod.currentDialogProvider) {
-                mod.prompts[mod.currentDialogProvider] = prompt;
-                mod.showResponse("✅ " + mod.currentDialogProvider.toUpperCase() + " prompt saved!", "success");
+            if (mod.currentDialogEntity) {
+                const entityId = mod.currentDialogEntity.uid;
+                mod.entityPrompts[entityId] = prompt;
+                mod.showResponse("✅ Prompt saved!", "success");
             }
             mod.hidePromptDialog();
         };
@@ -709,17 +785,40 @@ class Mod extends shapez.Mod {
             mod.hidePromptDialog();
         };
         
-        document.addEventListener("keydown", function(e) {
+        // Stop all key events from propagating when dialog is open
+        const input = document.getElementById("hermes-prompt-input");
+        input.addEventListener("keydown", function(e) {
+            e.stopPropagation();
+            
+            // Ctrl+Enter to save
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                document.getElementById("hermes-save-btn").click();
+            }
+            // Escape to cancel
             if (e.key === "Escape") {
+                mod.hidePromptDialog();
+            }
+        });
+        
+        input.addEventListener("keyup", function(e) {
+            e.stopPropagation();
+        });
+        
+        input.addEventListener("keypress", function(e) {
+            e.stopPropagation();
+        });
+        
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape" && document.getElementById("hermes-prompt-dialog").style.display !== "none") {
                 mod.hidePromptDialog();
             }
         });
     }
     
-    currentDialogProvider = null;
+    currentDialogEntity = null;
     
     showPromptDialog(provider, entity) {
-        this.currentDialogProvider = provider;
+        this.currentDialogEntity = entity;
         
         const dialog = document.getElementById("hermes-prompt-dialog");
         const overlay = document.getElementById("hermes-dialog-overlay");
@@ -727,17 +826,14 @@ class Mod extends shapez.Mod {
         const title = document.getElementById("hermes-dialog-title");
         const input = document.getElementById("hermes-prompt-input");
         
-        if (provider === "anthropic") {
-            icon.textContent = "❤️";
-            title.textContent = "Set Anthropic Claude Prompt";
-            dialog.style.borderColor = "#e94560";
-        } else {
-            icon.textContent = "💚";
-            title.textContent = "Set Gemini Prompt";
-            dialog.style.borderColor = "#4ecdc4";
-        }
+        // Generic prompt dialog (provider determined by paint block later)
+        icon.textContent = "🤖";
+        title.textContent = "Set Prompt";
+        dialog.style.borderColor = "#4ecdc4";
         
-        input.value = this.prompts[provider] || "";
+        // Get existing prompt for this entity if any
+        const entityId = entity.uid;
+        input.value = this.entityPrompts[entityId] || "";
         
         overlay.style.display = "block";
         dialog.style.display = "block";
@@ -747,7 +843,7 @@ class Mod extends shapez.Mod {
     hidePromptDialog() {
         document.getElementById("hermes-prompt-dialog").style.display = "none";
         document.getElementById("hermes-dialog-overlay").style.display = "none";
-        this.currentDialogProvider = null;
+        this.currentDialogEntity = null;
     }
     
     // ========================================================================
