@@ -234,6 +234,18 @@ class Mod extends shapez.Mod {
                         "1_1_extractor": "🌐 <strong>Web Browser Agent</strong><br><br>Place a <strong>Task Source</strong> (miner) on the <strong>Square</strong> patch.<br><br>This connects to a Vers VM with Playwright for browser automation.",
                         "1_2_conveyor": "Connect the Task Source to the <strong>Hub</strong> using a <strong>Pipeline</strong> (belt)!<br><br>💡 <strong>Double-click</strong> the Task Source to set your browser instruction.",
                         "1_3_expand": "⚠️ Grey shapes won't work! You need to <strong>paint them with a color</strong>.<br><br>Connect your pipeline to the <strong>Red</strong> color patch, then through a <strong>Painter</strong> to color your squares red.<br><br>🔴 Red = Claude AI (Anthropic)",
+                        
+                        // Level 2: iMessage Agent (Circle + Red)
+                        "2_1_place_cutter": "📱 <strong>iMessage Agent</strong><br><br>Place a <strong>Task Source</strong> on a <strong>Circle</strong> patch.<br><br>Connect it through the <strong>Red Painter</strong> to the Hub.",
+                        "2_2_place_trash": "💡 <strong>Double-click</strong> the Task Source to set an iMessage instruction!<br><br>Example: 'Read my latest messages' or 'Search for messages from Mom'",
+                        "2_3_more_cutters": "Circles give access to your local <strong>iMessage database</strong>.<br><br>🔴 Red = Claude AI reads and understands your messages.",
+                        
+                        // Level 3: GitHub Admin (Star + Red)
+                        "3_1_rectangles": "🐙 <strong>GitHub Admin</strong><br><br>Place a <strong>Task Source</strong> on a <strong>Star</strong> patch.<br><br>Connect it through the <strong>Red Painter</strong> to the Hub.<br><br>💡 <strong>Double-click</strong> to set a GitHub instruction!",
+                        
+                        // Level 4: Cloud Code (Yellow = Red + Green mixed)
+                        "4_1_mixer": "☁️ <strong>Cloud Code Agent</strong><br><br>Yellow shapes need <strong>mixed colors</strong>!<br><br>Use the <strong>Color Mixer</strong> building to combine:<br>🔴 Red + 🟢 Green = 🟡 Yellow",
+                        "4_2_connect": "Connect <strong>Red</strong> and <strong>Green</strong> color inputs to the Color Mixer.<br><br>Then paint any shape with the yellow output!<br><br>💡 <strong>Double-click</strong> the Color Mixer to set a coding instruction.",
                     },
                 },
             },
@@ -356,6 +368,67 @@ class Mod extends shapez.Mod {
                 this.element.appendChild(dblClickHint);
                 
                 console.log("[Hermes] Customized keybinding overlay");
+            });
+        }
+        
+        // ====================================================================
+        // OVERRIDE TUTORIAL HINTS FOR LEVELS 2, 3, 4
+        // ====================================================================
+        
+        if (shapez.HUDInteractiveTutorial) {
+            this.modInterface.replaceMethod(shapez.HUDInteractiveTutorial, "update", function() {
+                const level = this.root.hubGoals.level;
+                let targetHintId = null;
+                
+                // Level 1: Original logic (extractor, conveyor, expand)
+                if (level === 1) {
+                    const miners = this.root.entityMgr.getAllWithComponent(shapez.MinerComponent);
+                    if (miners.length === 0) {
+                        targetHintId = "1_1_extractor";
+                    } else {
+                        // Check if connected to hub
+                        const paths = this.root.systemMgr.systems.belt.beltPaths;
+                        let connectedToHub = false;
+                        for (let i = 0; i < paths.length; i++) {
+                            const path = paths[i];
+                            const acceptingEntity = path.computeAcceptingEntityAndSlot().entity;
+                            if (acceptingEntity && acceptingEntity.components.Hub) {
+                                for (let k = 0; k < miners.length; ++k) {
+                                    if (miners[k].components.ItemEjector.slots[0].cachedBeltPath === path) {
+                                        connectedToHub = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (connectedToHub) break;
+                        }
+                        targetHintId = connectedToHub ? "1_3_expand" : "1_2_conveyor";
+                    }
+                }
+                // Level 2: iMessage (Circle + Red)
+                else if (level === 2) {
+                    const miners = this.root.entityMgr.getAllWithComponent(shapez.MinerComponent);
+                    if (miners.length === 0) {
+                        targetHintId = "2_1_place_cutter";
+                    } else {
+                        const painters = this.root.entityMgr.getAllWithComponent(shapez.ItemProcessorComponent)
+                            .filter(e => e.components.ItemProcessor.type === shapez.enumItemProcessorTypes.painter);
+                        targetHintId = painters.length === 0 ? "2_2_place_trash" : "2_3_more_cutters";
+                    }
+                }
+                // Level 3: GitHub (Star + Red)
+                else if (level === 3) {
+                    targetHintId = "3_1_rectangles";
+                }
+                // Level 4: Cloud Code (Yellow = Red + Green mixed)
+                else if (level === 4) {
+                    const mixers = this.root.entityMgr.getAllWithComponent(shapez.ItemProcessorComponent)
+                        .filter(e => e.components.ItemProcessor.type === shapez.enumItemProcessorTypes.mixer);
+                    targetHintId = mixers.length === 0 ? "4_1_mixer" : "4_2_connect";
+                }
+                
+                this.currentHintId.set(targetHintId);
+                this.domAttach.update(!!targetHintId);
             });
         }
         
