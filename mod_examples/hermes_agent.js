@@ -3,21 +3,104 @@
  * Hermes Agent Mod for shapez.io
  * 
  * Transforms shapez.io into a visual AI agent interface:
- * - Circle sources become prompt inputs (click to configure)
- * - Green circles = Gemini AI
- * - Red circles = Anthropic Claude
- * - Hub (center) receives circles and shows AI responses
+ * - Circles (painted) = iMessage tasks (local agent)
+ * - Squares (painted) = GitHub Admin tasks (Apple Container)
+ * - Stars (painted) = Cloud Code tasks (Vers VM)
+ * 
+ * Colors determine the AI provider:
+ * - Green = Gemini
+ * - Red = Claude/Anthropic
+ * - Blue = Future provider
  */
 
 const METADATA = {
     website: "https://github.com/hdresearch/hermes-agent",
     author: "HDR",
     name: "Hermes Agent",
-    version: "2.0.0",
+    version: "3.0.0",
     id: "hermes-agent",
-    description: "Transform shapez.io into a visual AI agent. Configure prompts on circle sources, deliver to hub for AI responses.",
+    description: "Transform shapez.io into a visual AI orchestration interface. Configure prompts and route tasks to different execution environments.",
     minimumGameVersion: ">=1.5.0",
     doesNotAffectSavegame: true,
+};
+
+// ============================================================================
+// SHAPE TYPE TO TASK TYPE MAPPING
+// ============================================================================
+
+// Shape order around hub (clockwise from top):
+// Square (rect) -> Red -> Circle -> Blue -> Star -> Green
+// 
+// Level progression:
+// 1. Square = Browser Automation (Vers VM with Playwright)
+// 2. Circle = iMessage Task (Local agent with AppleScript)
+// 3. Star = GitHub Admin (Apple Container with GITHUB_API_KEY)
+// 4. Yellow (mixed) = Cloud Code (Vers VM with pi agent)
+
+const SHAPE_TASK_TYPES = {
+    rect: {
+        name: "Browser Automation",
+        icon: "🌐", 
+        description: "Spawns a Vers VM with Playwright for browser automation",
+        backend: "vers",
+        promptLabel: "Browser Task",
+        promptPlaceholder: "e.g., Go to github.com and star the hermes-agent repo..."
+    },
+    circle: {
+        name: "iMessage Task",
+        icon: "💬",
+        description: "Spawns a local agent with iMessage tools",
+        backend: "local",
+        promptLabel: "iMessage Instruction",
+        promptPlaceholder: "e.g., Send a message to John about the meeting tomorrow..."
+    },
+    star: {
+        name: "GitHub Admin Task", 
+        icon: "🐙",
+        description: "Spawns an Apple Container with GitHub admin tools",
+        backend: "apple_container",
+        promptLabel: "GitHub Task",
+        promptPlaceholder: "e.g., Clean up stale issues in repo hdresearch/hermes-agent..."
+    },
+    windmill: {
+        name: "Custom Task",
+        icon: "⚙️",
+        description: "Custom task type (configure in Hermes)",
+        backend: "docker",
+        promptLabel: "Custom Task",
+        promptPlaceholder: "Enter your task..."
+    }
+};
+
+// ============================================================================
+// COLOR TO PROVIDER/MODE MAPPING
+// ============================================================================
+
+const COLOR_MODES = {
+    blue: {
+        name: "Local Agent",
+        icon: "💻",
+        description: "Runs on your local machine",
+        provider: "local"
+    },
+    green: {
+        name: "Gemini",
+        icon: "💚",
+        description: "Google's Gemini AI",
+        provider: "gemini"
+    },
+    red: {
+        name: "Claude",
+        icon: "❤️",
+        description: "Anthropic's Claude AI",
+        provider: "anthropic"
+    },
+    yellow: {
+        name: "Cloud Code",
+        icon: "☁️",
+        description: "Vers VM with coding agent (pi)",
+        provider: "cloud_code"
+    }
 };
 
 // ============================================================================
@@ -26,16 +109,16 @@ const METADATA = {
 
 const HERMES_BUILDINGS = {
     miner: {
-        name: "AI Prompt Source",
-        description: "🎯 <strong>Double-click to set a prompt.</strong><br><br>Place on colored circles to create AI requests:<br>• <span style='color:#4ecdc4'>Green circles</span> → Gemini AI<br>• <span style='color:#e94560'>Red circles</span> → Anthropic Claude<br><br>Connect to belts to send prompts to the Hub."
+        name: "Task Source",
+        description: "🎯 <strong>Double-click to configure a task.</strong><br><br>Place on different shape patches for different task types:<br>• <strong>⬛ Squares</strong> → Browser Automation (Vers VM + Playwright)<br>• <strong>⚪ Circles</strong> → iMessage tasks (local agent)<br>• <strong>⭐ Stars</strong> → GitHub Admin (Apple Container)<br><br>Paint with colors to select execution mode, then deliver to Hub."
     },
     belt: {
-        name: "Data Pipeline",
-        description: "📡 <strong>Transports AI requests to the Hub.</strong><br><br>Connect miners (prompt sources) to the Hub. Shapes flowing on belts represent queued AI requests waiting to be processed."
+        name: "Task Pipeline",
+        description: "📡 <strong>Transports tasks to the Hub.</strong><br><br>Connect task sources to the Hub. Shapes represent queued tasks waiting to be dispatched to their execution environments."
     },
     hub: {
-        name: "AI Processing Hub",
-        description: "🧠 <strong>The AI brain - processes all incoming requests.</strong><br><br>When shapes arrive here:<br>• Green circles trigger <strong>Gemini</strong> with your prompt<br>• Red circles trigger <strong>Claude</strong> with your prompt<br><br>Responses appear as notifications."
+        name: "Task Dispatcher",
+        description: "🧠 <strong>Dispatches tasks to execution environments.</strong><br><br>When painted shapes arrive:<br>• <strong>Squares</strong> → Spawn Vers VM for browser automation<br>• <strong>Circles</strong> → Spawn local iMessage agent<br>• <strong>Stars</strong> → Spawn Apple Container for GitHub<br>• <strong>Yellow shapes</strong> → Spawn Vers VM with pi agent<br><br><strong>Uncolored shapes will show a warning!</strong>"
     },
     balancer: {
         name: "Load Balancer",
@@ -58,12 +141,12 @@ const HERMES_BUILDINGS = {
         description: "📚 <strong>Combines multiple contexts.</strong><br><br>Stacks two shapes together - use this to merge outputs from multiple AI calls into a combined context for downstream processing."
     },
     mixer: {
-        name: "Prompt Mixer",
-        description: "🎨 <strong>Blends AI provider responses.</strong><br><br>Combines colors (providers) to create hybrid requests. Mix green + red to get a request that queries both AIs."
+        name: "Color Mixer",
+        description: "🎨 <strong>Combines colors to create new modes!</strong><br><br>Mix colors to unlock special modes:<br>• <span style='color:#78ff66'>Green</span> + <span style='color:#ff666a'>Red</span> = <span style='color:#fcf52a'>Yellow</span> (Cloud Code)<br><br>Yellow mode spawns a Vers VM with pi installed for full coding agent capabilities!"
     },
     painter: {
-        name: "Provider Selector",
-        description: "🖌️ <strong>Assigns AI provider to requests.</strong><br><br>Paint shapes with colors to route them to specific AIs:<br>• Green → Gemini<br>• Red → Claude<br>• Other colors → Future providers"
+        name: "Mode Selector",
+        description: "🖌️ <strong>Assigns execution mode to tasks.</strong><br><br>Paint shapes with colors:<br>• <span style='color:#66a7ff'>Blue</span> → Local agent<br>• <span style='color:#78ff66'>Green</span> → Gemini AI<br>• <span style='color:#ff666a'>Red</span> → Claude AI<br>• <span style='color:#fcf52a'>Yellow</span> → Cloud Code (mix green+red!)"
     },
     trash: {
         name: "Request Canceller",
@@ -152,13 +235,46 @@ class Mod extends shapez.Mod {
                 interactiveTutorial: {
                     title: "Hermes Agent Tutorial",
                     hints: {
-                        "1_1_extractor": "Place an <strong>AI Prompt Source</strong> on a shape to start extracting AI requests!",
-                        "1_2_conveyor": "Connect the prompt source to the <strong>AI Hub</strong> with a <strong>Data Pipeline</strong> (conveyor belt)!<br><br>Tip: <strong>Double-click</strong> the prompt source to set your prompt!",
-                        "1_3_expand": "Build more prompt sources to process multiple AI requests! Use <strong>painters</strong> to route to different AI providers:<br>• <strong>Green</strong> → Gemini<br>• <strong>Red</strong> → Claude",
+                        "1_1_extractor": "Place a <strong>Task Source</strong> on the <strong>Square</strong> patch to create a <strong>Browser Automation</strong> task!<br><br>🌐 Squares spawn Vers VMs with Playwright installed.",
+                        "1_2_conveyor": "Connect the task source to the <strong>Hub</strong> with a <strong>Pipeline</strong>!<br><br>Tip: <strong>Double-click</strong> the source to set your browser automation instruction!",
+                        "1_3_expand": "Paint shapes with colors to select the execution mode:<br>• 🔵 Blue → Local agent<br>• 🟢 Green → Gemini AI<br>• 🔴 Red → Claude AI<br>• 🟡 Yellow → Cloud Code (mix green+red!)<br><br>⚠️ <em>Uncolored shapes won't work!</em>",
                     },
                 },
             },
+            // Custom level names for Hermes
+            storyRewards: {
+                reward_cutter_and_trash: {
+                    title: "Level 1: Browser Automation",
+                    desc: "You've learned to create browser automation tasks! Squares spawn Vers VMs with Playwright installed for web scraping and automation.",
+                },
+                reward_rotater: {
+                    title: "Level 2: iMessage Tasks", 
+                    desc: "Circle shapes spawn local agents with iMessage tools! Use AppleScript to send and read messages. Paint blue for local, or green/red for AI assistance.",
+                },
+                reward_painter: {
+                    title: "Level 3: GitHub Admin",
+                    desc: "Stars spawn Apple Containers with GITHUB_API_KEY for managing issues and PRs. Paint green (Gemini) or red (Claude) for AI-powered GitHub management!",
+                },
+                reward_mixer: {
+                    title: "Level 4: Cloud Code Agents",
+                    desc: "Use the Color Mixer to combine green + red = yellow! Yellow shapes spawn Vers VMs with pi (coding agent) installed for full cloud-based development.",
+                },
+            },
         });
+        
+        // ====================================================================
+        // HIDE SECONDARY TOOLBAR (Storage, Belt reader, Switch, Filter, Display)
+        // ====================================================================
+        
+        // Override the buildings toolbar to remove secondary buildings
+        if (shapez.HUDBuildingsToolbar) {
+            const originalConstructor = shapez.HUDBuildingsToolbar;
+            this.modInterface.replaceMethod(shapez.HUDBuildingsToolbar, "constructor", function($original, [root]) {
+                $original(root);
+                // Clear secondary buildings
+                this.secondaryBuildings = [];
+            });
+        }
         
         // Store prompts per entity (by entity uid)
         this.entityPrompts = {};
@@ -484,38 +600,141 @@ class Mod extends shapez.Mod {
                             
                             if (firstQuad) {
                                 const color = firstQuad.color;
+                                const shapeType = firstQuad.subShape; // "circle", "rect", "star", "windmill"
                                 
-                                // Only invoke AI for painted shapes (green = gemini, red = anthropic)
-                                // Unpainted/uncolored shapes are ignored
-                                if (color !== "green" && color !== "red") {
-                                    // Not a colored shape - don't invoke AI
+                                // Get task type info based on shape
+                                const taskInfo = SHAPE_TASK_TYPES[shapeType] || SHAPE_TASK_TYPES.windmill;
+                                
+                                // Check if shape is colored (painted)
+                                if (color === "uncolored" || !color) {
+                                    // Show yellow warning for uncolored shapes
+                                    mod.showResponse(
+                                        `⚠️ ${taskInfo.icon} ${taskInfo.name} needs a color! Paint it first.`,
+                                        "warning"
+                                    );
                                     continue;
                                 }
                                 
-                                // Determine provider based on color (set by painter block)
-                                let provider = color === "red" ? "anthropic" : "gemini";
+                                // Get color mode info
+                                const colorMode = COLOR_MODES[color];
                                 
-                                // Find any prompt set for this shape type
+                                // Check if this color is supported
+                                if (!colorMode) {
+                                    mod.showResponse(
+                                        `⚠️ Color "${color}" not configured. Use blue, green, red, or yellow.`,
+                                        "warning"
+                                    );
+                                    continue;
+                                }
+                                
+                                // Find prompt for this shape type
                                 let prompt = null;
                                 
                                 // Check entity-specific prompts (from double-clicked miners)
                                 for (const entityId in mod.entityPrompts) {
-                                    if (mod.entityPrompts[entityId]) {
-                                        prompt = mod.entityPrompts[entityId];
-                                        break; // Use first available prompt
+                                    const entityPrompt = mod.entityPrompts[entityId];
+                                    if (entityPrompt && entityPrompt.prompt) {
+                                        // Check if this prompt matches the shape type
+                                        if (!entityPrompt.shapeType || entityPrompt.shapeType === shapeType) {
+                                            prompt = entityPrompt.prompt;
+                                            break;
+                                        }
+                                    } else if (typeof entityPrompt === "string" && entityPrompt) {
+                                        prompt = entityPrompt;
+                                        break;
                                     }
                                 }
                                 
                                 if (prompt) {
-                                    mod.sendToAI(provider, prompt);
+                                    // Send task with shape type and color mode info
+                                    mod.sendTask(colorMode.provider, shapeType, prompt, taskInfo, colorMode);
+                                } else {
+                                    mod.showResponse(
+                                        `⚠️ No prompt set for ${taskInfo.name}. Double-click a source to configure.`,
+                                        "warning"
+                                    );
                                 }
-                                // No warning if no prompt - just silently ignore
                             }
                         }
                     }
                 }
             }
         );
+        
+        // ====================================================================
+        // CUSTOM MAP GENERATION - HERMES STARTING LAYOUT
+        // ====================================================================
+        
+        // Override the predefined map generation to create a Hermes-friendly layout
+        // Arranged in a circle around the hub: Square, Red, Circle, Blue, Star, Green
+        // This creates natural pairings: Square+Red, Circle+Blue, Star+Green
+        this.modInterface.replaceMethod(shapez.MapChunk, "generatePredefined", function($original, [rng]) {
+            // Chunk coordinates
+            const x = this.x;
+            const y = this.y;
+            
+            // Get shape items helper
+            const getShape = (shortKey) => this.root.shapeDefinitionMgr.getShapeItemFromShortKey(shortKey);
+            
+            // Get color items via shapez global
+            const getColor = (colorName) => shapez.COLOR_ITEM_SINGLETONS[colorName];
+            
+            // Arranged clockwise around the hub starting from top:
+            // 
+            //          (0,-1)         (1,-1)
+            //        SQUARE          RED
+            //
+            //  (-1,0)        [HUB]         (1,0)
+            //  GREEN                      CIRCLE
+            //
+            //         (-1,1)          (0,1)
+            //          STAR           BLUE
+            //
+            
+            // Top center (0, -1): Squares (rectangles)
+            if (x === 0 && y === -1) {
+                this.internalGeneratePatch(rng, 2, getShape("RuRuRuRu"), 7, 12);
+                return true;
+            }
+            
+            // Top right (1, -1): Red color
+            if (x === 1 && y === -1) {
+                this.internalGeneratePatch(rng, 2, getColor("red"), 3, 12);
+                return true;
+            }
+            
+            // Right (1, 0): Circles
+            if (x === 1 && y === 0) {
+                this.internalGeneratePatch(rng, 2, getShape("CuCuCuCu"), 3, 7);
+                return true;
+            }
+            
+            // Bottom right (0, 1): Blue color
+            if (x === 0 && y === 1) {
+                this.internalGeneratePatch(rng, 2, getColor("blue"), 7, 3);
+                return true;
+            }
+            
+            // Bottom left (-1, 1): Stars
+            if (x === -1 && y === 1) {
+                this.internalGeneratePatch(rng, 2, getShape("SuSuSuSu"), 12, 3);
+                return true;
+            }
+            
+            // Left (-1, 0): Green color
+            if (x === -1 && y === 0) {
+                this.internalGeneratePatch(rng, 2, getColor("green"), 12, 7);
+                return true;
+            }
+            
+            // Hub chunk (0, 0) - no additional patches needed
+            if (x === 0 && y === 0) {
+                return true;
+            }
+            
+            // For all other chunks, use original behavior
+            return $original(rng);
+        });
         
         // ====================================================================
         // GAME INITIALIZATION HOOKS
@@ -614,18 +833,70 @@ class Mod extends shapez.Mod {
     }
     
     handleWebSocketMessage(data) {
-        if (data.type === "ai_response") {
+        if (data.type === "ai_response" || data.type === "task_response") {
             const provider = data.provider || "AI";
+            const taskType = data.task_type || "";
             const response = data.response || data.result || "No response";
-            const icon = provider === "gemini" ? "💚" : "❤️";
-            this.showResponse(icon + " " + provider.toUpperCase() + ": " + response, "ai");
+            
+            // Get icon based on task type or provider
+            let icon = "🤖";
+            if (data.task_type) {
+                const taskInfo = SHAPE_TASK_TYPES[data.task_type];
+                if (taskInfo) icon = taskInfo.icon;
+            } else {
+                icon = provider === "gemini" ? "💚" : "❤️";
+            }
+            
+            this.showResponse(icon + " " + (taskType || provider).toUpperCase() + ": " + response, "ai");
+        } else if (data.type === "task_started") {
+            const taskInfo = SHAPE_TASK_TYPES[data.task_type] || {};
+            this.showResponse(`🚀 ${taskInfo.icon || "⚙️"} ${data.task_type} task started on ${data.backend}...`, "loading");
         } else if (data.type === "error") {
             this.showResponse("❌ Error: " + data.message, "error");
         }
     }
     
     // ========================================================================
-    // AI REQUEST HANDLING
+    // TASK HANDLING (Shape-specific)
+    // ========================================================================
+    
+    sendTask(provider, shapeType, prompt, taskInfo, colorMode) {
+        console.log("[Hermes] sendTask called:", provider, shapeType, prompt, taskInfo, colorMode);
+        
+        // Check WebSocket state
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this.showResponse("⚠️ Not connected to Hermes", "warning");
+            this.connectWebSocket();
+            return;
+        }
+        
+        const taskIcon = taskInfo.icon || "⚙️";
+        const colorIcon = colorMode?.icon || "🔵";
+        this.showResponse(`${colorIcon} ${taskIcon} ${colorMode?.name || provider}: ${taskInfo.name}...`, "loading");
+        
+        const message = JSON.stringify({
+            type: "task_request",
+            request_id: Date.now().toString(),
+            provider: provider,
+            color_mode: colorMode?.name || provider,
+            task_type: shapeType,
+            backend: taskInfo.backend,
+            prompt: prompt
+        });
+        
+        console.log("[Hermes] Sending task message:", message);
+        
+        try {
+            this.ws.send(message);
+            console.log("[Hermes] Task message sent successfully");
+        } catch (e) {
+            console.error("[Hermes] Failed to send task:", e);
+            this.showResponse("❌ Failed to send task: " + e.message, "error");
+        }
+    }
+    
+    // ========================================================================
+    // AI REQUEST HANDLING (Legacy, for simple prompts)
     // ========================================================================
     
     sendToAI(provider, prompt) {
@@ -725,7 +996,23 @@ class Mod extends shapez.Mod {
                 
                 if (entity && entity.components && entity.components.Miner) {
                     console.log("[Hermes] Found miner!");
-                    this.showPromptDialog(null, entity);
+                    
+                    // Try to detect what shape type is below this miner
+                    let shapeType = "circle"; // default
+                    try {
+                        const lowerItem = root.map.getLowerLayerContentXY(tileX, tileY);
+                        if (lowerItem && lowerItem.getItemType && lowerItem.getItemType() === "shape") {
+                            const def = lowerItem.definition;
+                            if (def && def.layers && def.layers[0] && def.layers[0][0]) {
+                                shapeType = def.layers[0][0].subShape || "circle";
+                                console.log("[Hermes] Detected shape type:", shapeType);
+                            }
+                        }
+                    } catch (e) {
+                        console.log("[Hermes] Could not detect shape type:", e);
+                    }
+                    
+                    this.showPromptDialog(null, entity, shapeType);
                     return;
                 }
             }
@@ -771,8 +1058,15 @@ class Mod extends shapez.Mod {
             const prompt = input.value.trim();
             if (mod.currentDialogEntity) {
                 const entityId = mod.currentDialogEntity.uid;
-                mod.entityPrompts[entityId] = prompt;
-                mod.showResponse("✅ Prompt saved!", "success");
+                const taskInfo = SHAPE_TASK_TYPES[mod.currentShapeType] || SHAPE_TASK_TYPES.circle;
+                
+                // Store prompt with shape type
+                mod.entityPrompts[entityId] = {
+                    prompt: prompt,
+                    shapeType: mod.currentShapeType
+                };
+                
+                mod.showResponse(`✅ ${taskInfo.icon} ${taskInfo.name} configured!`, "success");
             }
             mod.hidePromptDialog();
         };
@@ -816,24 +1110,49 @@ class Mod extends shapez.Mod {
     }
     
     currentDialogEntity = null;
+    currentShapeType = null;
     
-    showPromptDialog(provider, entity) {
+    showPromptDialog(provider, entity, shapeType) {
         this.currentDialogEntity = entity;
+        this.currentShapeType = shapeType || "circle";
         
         const dialog = document.getElementById("hermes-prompt-dialog");
         const overlay = document.getElementById("hermes-dialog-overlay");
         const icon = document.getElementById("hermes-dialog-icon");
         const title = document.getElementById("hermes-dialog-title");
         const input = document.getElementById("hermes-prompt-input");
+        const description = dialog.querySelector("p");
         
-        // Generic prompt dialog (provider determined by paint block later)
-        icon.textContent = "🤖";
-        title.textContent = "Set Prompt";
-        dialog.style.borderColor = "#4ecdc4";
+        // Get task info based on shape type
+        const taskInfo = SHAPE_TASK_TYPES[this.currentShapeType] || SHAPE_TASK_TYPES.circle;
+        
+        // Update dialog based on shape/task type
+        icon.textContent = taskInfo.icon;
+        title.textContent = taskInfo.promptLabel || "Set Prompt";
+        input.placeholder = taskInfo.promptPlaceholder || "Enter your prompt here...";
+        
+        // Update description
+        if (description) {
+            description.textContent = taskInfo.description + ". Paint shapes green (Gemini) or red (Claude) before delivering to Hub.";
+        }
+        
+        // Update border color based on shape type
+        const colors = {
+            circle: "#4ecdc4",  // Cyan for iMessage
+            rect: "#e94560",    // Red for GitHub
+            star: "#f39c12",    // Orange for Cloud
+            windmill: "#9b59b6" // Purple for custom
+        };
+        dialog.style.borderColor = colors[this.currentShapeType] || "#4ecdc4";
         
         // Get existing prompt for this entity if any
         const entityId = entity.uid;
-        input.value = this.entityPrompts[entityId] || "";
+        const existingPrompt = this.entityPrompts[entityId];
+        if (typeof existingPrompt === "object") {
+            input.value = existingPrompt.prompt || "";
+        } else {
+            input.value = existingPrompt || "";
+        }
         
         overlay.style.display = "block";
         dialog.style.display = "block";
