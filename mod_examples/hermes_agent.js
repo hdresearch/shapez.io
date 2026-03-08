@@ -1289,7 +1289,7 @@ class Mod extends shapez.Mod {
         
         if (this.responseQueue.length === 0) return;
         
-        // Create container - bottom RIGHT
+        // Create container - bottom RIGHT (pointer-events:none so it doesn't block game)
         container = document.createElement("div");
         container.id = "hermes-responses";
         container.style.cssText = "position:fixed;bottom:70px;right:20px;z-index:99998;max-width:450px;pointer-events:none;";
@@ -1322,7 +1322,7 @@ class Mod extends shapez.Mod {
         if (!btn) {
             btn = document.createElement("button");
             btn.id = "hermes-history-btn";
-            btn.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:99999;background:linear-gradient(135deg,#4ecdc4,#44a08d);border:none;border-radius:50%;width:44px;height:44px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:18px;display:flex;align-items:center;justify-content:center;";
+            btn.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:100000;background:linear-gradient(135deg,#4ecdc4,#44a08d);border:none;border-radius:50%;width:44px;height:44px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:18px;display:flex;align-items:center;justify-content:center;pointer-events:auto;";
             btn.innerHTML = "📜";
             btn.title = "Message History";
             
@@ -1352,7 +1352,7 @@ class Mod extends shapez.Mod {
         if (!panel) {
             panel = document.createElement("div");
             panel.id = "hermes-history-panel";
-            panel.style.cssText = "position:fixed;bottom:80px;right:20px;width:400px;max-height:400px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #4ecdc4;border-radius:12px;z-index:99999;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:sans-serif;";
+            panel.style.cssText = "position:fixed;bottom:80px;right:20px;width:400px;max-height:400px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #4ecdc4;border-radius:12px;z-index:100001;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:sans-serif;pointer-events:auto;";
             
             // Header
             const header = document.createElement("div");
@@ -1360,10 +1360,10 @@ class Mod extends shapez.Mod {
             header.innerHTML = '<span style="color:#fff;font-weight:600;">Message History</span><button id="hermes-history-close" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px;">✕</button>';
             panel.appendChild(header);
             
-            // Content
+            // Content - scrollable
             const content = document.createElement("div");
             content.id = "hermes-history-content";
-            content.style.cssText = "max-height:340px;overflow-y:auto;padding:8px;";
+            content.style.cssText = "max-height:340px;overflow-y:auto;padding:8px;pointer-events:auto;";
             panel.appendChild(content);
             
             document.body.appendChild(panel);
