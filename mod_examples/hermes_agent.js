@@ -266,13 +266,14 @@ class Mod extends shapez.Mod {
         // HIDE SECONDARY TOOLBAR (Storage, Belt reader, Switch, Filter, Display)
         // ====================================================================
         
-        // Override the buildings toolbar to remove secondary buildings
+        // Clear secondary buildings before the toolbar initializes
         if (shapez.HUDBuildingsToolbar) {
-            const originalConstructor = shapez.HUDBuildingsToolbar;
-            this.modInterface.replaceMethod(shapez.HUDBuildingsToolbar, "constructor", function($original, [root]) {
-                $original(root);
-                // Clear secondary buildings
-                this.secondaryBuildings = [];
+            this.modInterface.runAfterMethod(shapez.HUDBuildingsToolbar, "initialize", function() {
+                // Hide the secondary row if it was created
+                if (this.secondaryDomAttach) {
+                    this.secondaryDomAttach.element.style.display = "none";
+                }
+                console.log("[Hermes] Hidden secondary toolbar");
             });
         }
         
