@@ -39,7 +39,7 @@ const METADATA = {
 
 const SHAPE_TASK_TYPES = {
     rect: {
-        name: "Browser Automation",
+        name: "Playwright Browser (Vers)",
         icon: "🌐", 
         description: "Runs in a Vers VM with Playwright. Can navigate pages, click, fill forms, screenshot, and extract content",
         backend: "vers",
