@@ -222,26 +222,6 @@ class Mod extends shapez.Mod {
         console.log("[Hermes] Mod initializing...");
         
         // ====================================================================
-        // HIDE MAIN MENU ELEMENTS (social links, language, changelog)
-        // ====================================================================
-        
-        const hideMainMenuCSS = document.createElement("style");
-        hideMainMenuCSS.textContent = `
-            /* Hide social links row (top left) */
-            .mainMenu .socialLinks { display: none !important; }
-            
-            /* Hide language chooser (top right) */
-            .mainMenu .languageChoose { display: none !important; }
-            
-            /* Hide changelog and help translate (bottom left) */
-            .mainMenu .changelog { display: none !important; }
-            .mainMenu .helpTranslate { display: none !important; }
-            
-            /* Keep logo and tobspr visible */
-        `;
-        document.head.appendChild(hideMainMenuCSS);
-        
-        // ====================================================================
         // OVERRIDE TUTORIAL HINTS FOR HERMES AGENT
         // ====================================================================
         
