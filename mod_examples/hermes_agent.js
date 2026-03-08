@@ -933,9 +933,16 @@ class Mod extends shapez.Mod {
             return;
         }
         
-        const taskIcon = taskInfo.icon || "⚙️";
+        // For cloud_code (yellow), override the task name to "Cloud Code"
+        let displayName = taskInfo.name;
+        let taskIcon = taskInfo.icon || "⚙️";
+        if (provider === "cloud_code") {
+            displayName = "Cloud Code";
+            taskIcon = "☁️";
+        }
+        
         const colorIcon = colorMode?.icon || "🔵";
-        this.showResponse(`${colorIcon} ${taskIcon} ${colorMode?.name || provider}: ${taskInfo.name}...`, "loading");
+        this.showResponse(`${colorIcon} ${taskIcon} ${colorMode?.name || provider}: ${displayName}...`, "loading");
         
         const message = JSON.stringify({
             type: "task_request",
