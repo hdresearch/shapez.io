@@ -327,6 +327,39 @@ class Mod extends shapez.Mod {
             });
         }
         
+        // ====================================================================
+        // CUSTOMIZE KEYBINDING OVERLAY
+        // ====================================================================
+        
+        // Override keybinding overlay to remove "switch layers" and add double-click hint
+        if (shapez.HUDKeybindingOverlay) {
+            this.modInterface.runAfterMethod(shapez.HUDKeybindingOverlay, "createElements", function(parent) {
+                // Filter out "switch layers" keybinding and add double-click hint
+                const newBindings = [];
+                for (let i = 0; i < this.keybindings.length; i++) {
+                    const binding = this.keybindings[i];
+                    // Skip the switch layers binding
+                    if (binding.label && binding.label.toLowerCase().includes("layer")) {
+                        // Hide the cached element if it exists
+                        if (binding.cachedElement) {
+                            binding.cachedElement.style.display = "none";
+                        }
+                        continue;
+                    }
+                    newBindings.push(binding);
+                }
+                
+                // Add double-click hint at the end
+                const dblClickHint = document.createElement("div");
+                dblClickHint.className = "binding visible";
+                dblClickHint.innerHTML = '<code class="keybinding">2×🖱️</code><label>Set prompt</label>';
+                dblClickHint.style.cssText = "display:flex;align-items:center;gap:4px;";
+                this.element.appendChild(dblClickHint);
+                
+                console.log("[Hermes] Customized keybinding overlay");
+            });
+        }
+        
         // Store prompts per entity (by entity uid)
         this.entityPrompts = {};
         
