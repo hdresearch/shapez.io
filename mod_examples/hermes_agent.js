@@ -681,18 +681,30 @@ class Mod extends shapez.Mod {
                                 // Find prompt for this shape type
                                 let prompt = null;
                                 
-                                // Check entity-specific prompts (from double-clicked miners)
-                                for (const entityId in mod.entityPrompts) {
-                                    const entityPrompt = mod.entityPrompts[entityId];
-                                    if (entityPrompt && entityPrompt.prompt) {
-                                        // Check if this prompt matches the shape type
-                                        if (!entityPrompt.shapeType || entityPrompt.shapeType === shapeType) {
-                                            prompt = entityPrompt.prompt;
+                                // For cloud_code (yellow shapes), use the global cloud code prompt
+                                if (colorMode.provider === "cloud_code") {
+                                    prompt = mod.cloudCodePrompt;
+                                    if (!prompt) {
+                                        mod.showResponse(
+                                            `⚠️ No Cloud Code prompt set. Double-click a Color Mixer to configure.`,
+                                            "warning"
+                                        );
+                                        return;
+                                    }
+                                } else {
+                                    // Check entity-specific prompts (from double-clicked miners)
+                                    for (const entityId in mod.entityPrompts) {
+                                        const entityPrompt = mod.entityPrompts[entityId];
+                                        if (entityPrompt && entityPrompt.prompt) {
+                                            // Check if this prompt matches the shape type
+                                            if (!entityPrompt.shapeType || entityPrompt.shapeType === shapeType) {
+                                                prompt = entityPrompt.prompt;
+                                                break;
+                                            }
+                                        } else if (typeof entityPrompt === "string" && entityPrompt) {
+                                            prompt = entityPrompt;
                                             break;
                                         }
-                                    } else if (typeof entityPrompt === "string" && entityPrompt) {
-                                        prompt = entityPrompt;
-                                        break;
                                     }
                                 }
                                 
@@ -1045,6 +1057,17 @@ class Mod extends shapez.Mod {
                 const entity = contents[i];
                 console.log("[Hermes] Checking entity:", entity, entity?.components);
                 
+                // Check for Color Mixer (Cloud Code prompt)
+                if (entity && entity.components && entity.components.ItemProcessor) {
+                    const processor = entity.components.ItemProcessor;
+                    if (processor.processorType === "mixer" || 
+                        (processor.type && processor.type.includes && processor.type.includes("mixer"))) {
+                        console.log("[Hermes] Found mixer - opening Cloud Code prompt dialog!");
+                        this.showCloudCodePromptDialog(entity);
+                        return;
+                    }
+                }
+                
                 if (entity && entity.components && entity.components.Miner) {
                     console.log("[Hermes] Found miner!");
                     
@@ -1068,7 +1091,7 @@ class Mod extends shapez.Mod {
                 }
             }
             
-            console.log("[Hermes] No miner found at this location");
+            console.log("[Hermes] No miner or mixer found at this location");
         } catch (e) {
             console.error("[Hermes] Error handling double click:", e);
         }
@@ -1224,10 +1247,116 @@ class Mod extends shapez.Mod {
         document.getElementById("hermes-dialog-overlay").style.display = "none";
         this.currentDialogEntity = null;
         
+        // Also hide cloud code dialog if open
+        const cloudDialog = document.getElementById("hermes-cloudcode-dialog");
+        if (cloudDialog) {
+            cloudDialog.style.display = "none";
+        }
+        
         // Resume the game if we paused it
         if (this.root && this.root.time && !this.wasGamePaused) {
             this.root.time.performResume();
             console.log("[Hermes] Game resumed after prompt dialog");
+        }
+        this.wasGamePaused = false;
+    }
+    
+    // ========================================================================
+    // CLOUD CODE PROMPT DIALOG (for Color Mixer double-click)
+    // ========================================================================
+    
+    cloudCodePrompt = "";  // Global cloud code prompt
+    
+    createCloudCodeDialog() {
+        // Check if already exists
+        if (document.getElementById("hermes-cloudcode-dialog")) {
+            return;
+        }
+        
+        // Create dialog
+        const dialog = document.createElement("div");
+        dialog.id = "hermes-cloudcode-dialog";
+        dialog.style.cssText = "display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #f1c40f;border-radius:12px;padding:24px;z-index:100000;min-width:450px;max-width:650px;box-shadow:0 20px 60px rgba(0,0,0,0.5);font-family:sans-serif;";
+        
+        dialog.innerHTML = '<div style="display:flex;align-items:center;margin-bottom:16px;">' +
+            '<span style="font-size:32px;margin-right:12px;">☁️</span>' +
+            '<div><h2 style="margin:0;color:#fff;font-size:18px;">Cloud Code Agent Prompt</h2>' +
+            '<p style="margin:4px 0 0;color:#888;font-size:12px;">Set the coding task for yellow shapes. The agent has full terminal, web, and code execution access.</p></div></div>' +
+            '<textarea id="hermes-cloudcode-input" placeholder="e.g., Create a Python script that fetches weather data and displays it in a nice format..." style="width:100%;height:150px;background:#0d1117;border:1px solid #f1c40f;border-radius:8px;color:#e6edf3;padding:12px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>' +
+            '<div style="margin-top:12px;padding:10px;background:rgba(241,196,15,0.1);border-radius:6px;border:1px solid rgba(241,196,15,0.3);">' +
+            '<p style="margin:0;color:#f1c40f;font-size:12px;">💡 <strong>Tip:</strong> Yellow shapes = Cloud Code Agent (Green + Red paint mixed)</p>' +
+            '<p style="margin:4px 0 0;color:#888;font-size:11px;">The agent can run commands, browse the web, and execute code in a sandboxed environment.</p></div>' +
+            '<p style="margin:8px 0 0;color:#666;font-size:11px;">Press Ctrl+Enter to save, Escape to cancel</p>' +
+            '<div style="display:flex;justify-content:flex-end;gap:12px;margin-top:16px;">' +
+            '<button id="hermes-cloudcode-cancel" style="padding:10px 20px;background:transparent;border:1px solid #30363d;border-radius:6px;color:#888;cursor:pointer;">Cancel</button>' +
+            '<button id="hermes-cloudcode-save" style="padding:10px 24px;background:linear-gradient(135deg,#f1c40f,#f39c12);border:none;border-radius:6px;color:#000;cursor:pointer;font-weight:600;">Save Prompt</button></div>';
+        
+        document.body.appendChild(dialog);
+        
+        const mod = this;
+        
+        document.getElementById("hermes-cloudcode-save").onclick = function() {
+            const input = document.getElementById("hermes-cloudcode-input");
+            mod.cloudCodePrompt = input.value.trim();
+            mod.showResponse("☁️ Cloud Code prompt configured!", "success");
+            mod.hideCloudCodeDialog();
+        };
+        
+        document.getElementById("hermes-cloudcode-cancel").onclick = function() {
+            mod.hideCloudCodeDialog();
+        };
+        
+        // Handle keyboard events
+        const input = document.getElementById("hermes-cloudcode-input");
+        input.addEventListener("keydown", function(e) {
+            e.stopPropagation();
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                document.getElementById("hermes-cloudcode-save").click();
+            }
+            if (e.key === "Escape") {
+                mod.hideCloudCodeDialog();
+            }
+        });
+        input.addEventListener("keyup", function(e) { e.stopPropagation(); });
+        input.addEventListener("keypress", function(e) { e.stopPropagation(); });
+    }
+    
+    showCloudCodePromptDialog(entity) {
+        // Create dialog if it doesn't exist
+        this.createCloudCodeDialog();
+        
+        const dialog = document.getElementById("hermes-cloudcode-dialog");
+        const overlay = document.getElementById("hermes-dialog-overlay");
+        const input = document.getElementById("hermes-cloudcode-input");
+        
+        // Load existing prompt
+        input.value = this.cloudCodePrompt || "";
+        
+        overlay.style.display = "block";
+        dialog.style.display = "block";
+        input.focus();
+        
+        // Pause the game while dialog is open
+        if (this.root && this.root.time) {
+            this.wasGamePaused = this.root.time.getIsPaused();
+            if (!this.wasGamePaused) {
+                this.root.time.performPause();
+                console.log("[Hermes] Game paused for cloud code prompt dialog");
+            }
+        }
+    }
+    
+    hideCloudCodeDialog() {
+        const dialog = document.getElementById("hermes-cloudcode-dialog");
+        const overlay = document.getElementById("hermes-dialog-overlay");
+        
+        if (dialog) dialog.style.display = "none";
+        if (overlay) overlay.style.display = "none";
+        
+        // Resume the game if we paused it
+        if (this.root && this.root.time && !this.wasGamePaused) {
+            this.root.time.performResume();
+            console.log("[Hermes] Game resumed after cloud code prompt dialog");
         }
         this.wasGamePaused = false;
     }
