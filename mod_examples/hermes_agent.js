@@ -1490,8 +1490,9 @@ class Mod extends shapez.Mod {
         if (!btn) {
             btn = document.createElement("button");
             btn.id = "hermes-history-btn";
-            btn.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:100000;background:linear-gradient(135deg,#4ecdc4,#44a08d);border:none;border-radius:50%;width:44px;height:44px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:18px;display:flex;align-items:center;justify-content:center;pointer-events:auto;";
-            btn.innerHTML = "📜";
+            btn.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:100000;background:#222;border:2px solid #444;border-radius:8px;width:40px;height:40px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;pointer-events:auto;flex-direction:column;gap:3px;padding:8px;";
+            // Hamburger icon using three lines
+            btn.innerHTML = '<span style="display:block;width:18px;height:2px;background:#fff;"></span><span style="display:block;width:18px;height:2px;background:#fff;"></span><span style="display:block;width:18px;height:2px;background:#fff;"></span>';
             btn.title = "Message History";
             
             const mod = this;
@@ -1504,7 +1505,8 @@ class Mod extends shapez.Mod {
         
         // Update badge count
         const count = this.messageHistory.length;
-        btn.innerHTML = count > 0 ? "📜<span style='position:absolute;top:-5px;right:-5px;background:#e74c3c;color:#fff;font-size:10px;padding:2px 5px;border-radius:10px;'>" + count + "</span>" : "📜";
+        const hamburger = '<span style="display:block;width:18px;height:2px;background:#fff;"></span><span style="display:block;width:18px;height:2px;background:#fff;"></span><span style="display:block;width:18px;height:2px;background:#fff;"></span>';
+        btn.innerHTML = count > 0 ? hamburger + "<span style='position:absolute;top:-5px;right:-5px;background:#e74c3c;color:#fff;font-size:10px;padding:2px 5px;border-radius:10px;'>" + count + "</span>" : hamburger;
     }
     
     toggleHistoryPanel() {
