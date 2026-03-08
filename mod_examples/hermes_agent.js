@@ -349,11 +349,10 @@ class Mod extends shapez.Mod {
                     newBindings.push(binding);
                 }
                 
-                // Add double-click hint at the end
+                // Add double-click hint at the end (two left mouse icons side by side)
                 const dblClickHint = document.createElement("div");
                 dblClickHint.className = "binding visible";
-                dblClickHint.innerHTML = '<code class="keybinding">2×🖱️</code><label>Set prompt</label>';
-                dblClickHint.style.cssText = "display:flex;align-items:center;gap:4px;";
+                dblClickHint.innerHTML = '<code class="keybinding leftMouse"></code><code class="keybinding leftMouse"></code><label>Set prompt</label>';
                 this.element.appendChild(dblClickHint);
                 
                 console.log("[Hermes] Customized keybinding overlay");
