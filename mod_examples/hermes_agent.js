@@ -77,12 +77,6 @@ const SHAPE_TASK_TYPES = {
 // ============================================================================
 
 const COLOR_MODES = {
-    blue: {
-        name: "Local Agent",
-        icon: "💻",
-        description: "Runs on your local machine",
-        provider: "local"
-    },
     green: {
         name: "Gemini",
         icon: "💚",
@@ -101,6 +95,7 @@ const COLOR_MODES = {
         description: "Vers VM with coding agent (pi)",
         provider: "cloud_code"
     }
+    // Note: Blue is intentionally not supported - use Green, Red, or Yellow
 };
 
 // ============================================================================
@@ -118,7 +113,7 @@ const HERMES_BUILDINGS = {
     },
     hub: {
         name: "Task Dispatcher",
-        description: "🧠 <strong>Dispatches tasks to execution environments.</strong><br><br>When painted shapes arrive:<br>• <strong>Squares</strong> → Spawn Vers VM for browser automation<br>• <strong>Circles</strong> → Spawn local iMessage agent<br>• <strong>Stars</strong> → Spawn Apple Container for GitHub<br>• <strong>Yellow shapes</strong> → Spawn Vers VM with pi agent<br><br><strong>Uncolored shapes will show a warning!</strong>"
+        description: "🧠 <strong>Dispatches tasks to execution environments.</strong><br><br>When painted shapes arrive:<br>• 🌐 <strong>Squares</strong> → Web Browser Agent (Vers VM + Playwright)<br>• 💬 <strong>Circles</strong> → iMessage Agent (local + AppleScript)<br>• 🐙 <strong>Stars</strong> → GitHub Admin (Apple Container)<br>• ☁️ <strong>Yellow</strong> → Cloud Code (Vers VM + pi)<br><br>⚠️ <strong>Grey/uncolored shapes will be rejected!</strong>"
     },
     balancer: {
         name: "Load Balancer",
@@ -145,8 +140,8 @@ const HERMES_BUILDINGS = {
         description: "🎨 <strong>Combines colors to create new modes!</strong><br><br>Mix colors to unlock special modes:<br>• <span style='color:#78ff66'>Green</span> + <span style='color:#ff666a'>Red</span> = <span style='color:#fcf52a'>Yellow</span> (Cloud Code)<br><br>Yellow mode spawns a Vers VM with pi installed for full coding agent capabilities!"
     },
     painter: {
-        name: "Mode Selector",
-        description: "🖌️ <strong>Assigns execution mode to tasks.</strong><br><br>Paint shapes with colors:<br>• <span style='color:#66a7ff'>Blue</span> → Local agent<br>• <span style='color:#78ff66'>Green</span> → Gemini AI<br>• <span style='color:#ff666a'>Red</span> → Claude AI<br>• <span style='color:#fcf52a'>Yellow</span> → Cloud Code (mix green+red!)"
+        name: "AI Provider Selector",
+        description: "🖌️ <strong>Assigns AI provider to tasks.</strong><br><br>Paint shapes with colors:<br>• <span style='color:#78ff66'>Green</span> → Gemini AI<br>• <span style='color:#ff666a'>Red</span> → Claude AI<br>• <span style='color:#fcf52a'>Yellow</span> → Cloud Code (mix green+red!)"
     },
     trash: {
         name: "Request Canceller",
@@ -235,32 +230,85 @@ class Mod extends shapez.Mod {
                 interactiveTutorial: {
                     title: "Hermes Agent Tutorial",
                     hints: {
-                        "1_1_extractor": "Place a <strong>Task Source</strong> on the <strong>Square</strong> patch to create a <strong>Browser Automation</strong> task!<br><br>🌐 Squares spawn Vers VMs with Playwright installed.",
-                        "1_2_conveyor": "Connect the task source to the <strong>Hub</strong> with a <strong>Pipeline</strong>!<br><br>Tip: <strong>Double-click</strong> the source to set your browser automation instruction!",
-                        "1_3_expand": "Paint shapes with colors to select the execution mode:<br>• 🔵 Blue → Local agent<br>• 🟢 Green → Gemini AI<br>• 🔴 Red → Claude AI<br>• 🟡 Yellow → Cloud Code (mix green+red!)<br><br>⚠️ <em>Uncolored shapes won't work!</em>",
+                        // Level 1: Web Browser Agent (Square + Red)
+                        "1_1_extractor": "🌐 <strong>Web Browser Agent</strong><br><br>Place a <strong>Task Source</strong> (miner) on the <strong>Square</strong> patch.<br><br>This connects to a Vers VM with Playwright for browser automation.",
+                        "1_2_conveyor": "Connect the Task Source to the <strong>Hub</strong> using a <strong>Pipeline</strong> (belt)!<br><br>💡 <strong>Double-click</strong> the Task Source to set your browser instruction.",
+                        "1_3_expand": "⚠️ Grey shapes won't work! You need to <strong>paint them with a color</strong>.<br><br>Connect your pipeline to the <strong>Red</strong> color patch, then through a <strong>Painter</strong> to color your squares red.<br><br>🔴 Red = Claude AI (Anthropic)",
                     },
                 },
             },
-            // Custom level names for Hermes
+            // Custom level descriptions for Hermes
             storyRewards: {
+                // Level 1 complete: Browser automation works
                 reward_cutter_and_trash: {
-                    title: "Level 1: Browser Automation",
-                    desc: "You've learned to create browser automation tasks! Squares spawn Vers VMs with Playwright installed for web scraping and automation.",
+                    title: "✅ Level 1: Web Browser Agent",
+                    desc: "Excellent! You've set up a web browsing agent. Red squares spawn Vers VMs with Playwright installed. Claude helps navigate and automate browser tasks.",
                 },
+                // Level 2: iMessage (Circle + Red) 
                 reward_rotater: {
-                    title: "Level 2: iMessage Tasks", 
-                    desc: "Circle shapes spawn local agents with iMessage tools! Use AppleScript to send and read messages. Paint blue for local, or green/red for AI assistance.",
+                    title: "📱 Level 2: iMessage Agent", 
+                    desc: "Now connect <strong>Circles</strong> to the <strong>Red</strong> painter!<br><br>Circles spawn local agents with iMessage read tools. Double-click to set an instruction like 'Read my latest messages'.",
                 },
+                // Level 3: GitHub Admin (Star + Red)
                 reward_painter: {
-                    title: "Level 3: GitHub Admin",
-                    desc: "Stars spawn Apple Containers with GITHUB_API_KEY for managing issues and PRs. Paint green (Gemini) or red (Claude) for AI-powered GitHub management!",
+                    title: "🐙 Level 3: GitHub Admin Agent",
+                    desc: "Connect <strong>Stars</strong> to the <strong>Red</strong> painter!<br><br>Stars spawn Apple Containers with GITHUB_API_KEY. Set instructions like 'List open issues in hdresearch/hermes-agent'.",
                 },
+                // Level 4: Cloud Code (any shape + Yellow)
                 reward_mixer: {
-                    title: "Level 4: Cloud Code Agents",
-                    desc: "Use the Color Mixer to combine green + red = yellow! Yellow shapes spawn Vers VMs with pi (coding agent) installed for full cloud-based development.",
+                    title: "☁️ Level 4: Cloud Code Agent",
+                    desc: "Use the <strong>Color Mixer</strong> to combine Green + Red = <strong>Yellow</strong>!<br><br>Yellow shapes spawn Vers VMs with pi (coding agent). Full cloud-based development environment!",
                 },
             },
         });
+        
+        // ====================================================================
+        // OVERRIDE LEVEL DEFINITIONS FOR HERMES
+        // ====================================================================
+        
+        // Override generateLevelsForVariant to use our custom levels
+        // Each level requires only 1 shape to pass (instead of 10-30)
+        const hermesLevels = [
+            // Level 1: Red Square (Browser Automation)
+            {
+                shape: "RrRrRrRr",  // Red square
+                required: 1,
+                reward: shapez.enumHubGoalRewards.reward_cutter_and_trash,
+            },
+            // Level 2: Red Circle (iMessage)
+            {
+                shape: "CrCrCrCr",  // Red circle
+                required: 1,
+                reward: shapez.enumHubGoalRewards.reward_rotater,
+            },
+            // Level 3: Red Star (GitHub Admin)
+            {
+                shape: "SrSrSrSr",  // Red star
+                required: 1,
+                reward: shapez.enumHubGoalRewards.reward_painter,
+            },
+            // Level 4: Yellow shape (Cloud Code) - any shape painted yellow
+            {
+                shape: "RyRyRyRy",  // Yellow square (green + red mixed)
+                required: 1,
+                reward: shapez.enumHubGoalRewards.reward_mixer,
+            },
+            // Freeplay - any shape
+            {
+                shape: "CuCuCuCu",
+                required: 1,
+                reward: shapez.enumHubGoalRewards.reward_freeplay,
+            },
+        ];
+        
+        // Replace the level generation function
+        if (shapez.generateLevelsForVariant) {
+            const originalGenerate = shapez.generateLevelsForVariant;
+            shapez.generateLevelsForVariant = function(app) {
+                console.log("[Hermes] Using custom Hermes levels");
+                return hermesLevels;
+            };
+        }
         
         // ====================================================================
         // HIDE SECONDARY TOOLBAR (Storage, Belt reader, Switch, Filter, Display)
