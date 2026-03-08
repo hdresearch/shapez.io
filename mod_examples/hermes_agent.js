@@ -1522,7 +1522,7 @@ class Mod extends shapez.Mod {
         if (!panel) {
             panel = document.createElement("div");
             panel.id = "hermes-history-panel";
-            panel.style.cssText = "position:fixed;bottom:80px;right:20px;width:400px;max-height:400px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #4ecdc4;border-radius:12px;z-index:100001;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:sans-serif;pointer-events:auto;";
+            panel.style.cssText = "position:fixed;bottom:80px;right:20px;width:400px;max-height:400px;background:rgba(51,52,59,0.95);border:1px solid #444;border-radius:8px;z-index:100001;overflow:hidden;font-family:sans-serif;pointer-events:auto;";
             
             // Header
             const header = document.createElement("div");
