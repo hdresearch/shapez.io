@@ -41,26 +41,26 @@ const SHAPE_TASK_TYPES = {
     rect: {
         name: "Browser Automation",
         icon: "🌐", 
-        description: "Spawns a Vers VM with Playwright for browser automation",
+        description: "Runs in a Vers VM with Playwright. Can navigate pages, click, fill forms, screenshot, and extract content",
         backend: "vers",
-        promptLabel: "Browser Task",
-        promptPlaceholder: "e.g., Go to github.com and star the hermes-agent repo..."
+        promptLabel: "Browser Task (Playwright)",
+        promptPlaceholder: "e.g., Go to news.ycombinator.com and get the top 5 headlines..."
     },
     circle: {
         name: "iMessage Task",
         icon: "💬",
-        description: "Spawns a local agent with iMessage tools",
+        description: "Local agent with iMessage read tools via AppleScript (read-only for now)",
         backend: "local",
-        promptLabel: "iMessage Instruction",
-        promptPlaceholder: "e.g., Send a message to John about the meeting tomorrow..."
+        promptLabel: "iMessage Task (Read-Only)",
+        promptPlaceholder: "e.g., Read my latest messages from Mom..."
     },
     star: {
         name: "GitHub Admin Task", 
         icon: "🐙",
-        description: "Spawns an Apple Container with GitHub admin tools",
+        description: "Apple Container with GITHUB_API_KEY for managing issues, PRs, and repos",
         backend: "apple_container",
-        promptLabel: "GitHub Task",
-        promptPlaceholder: "e.g., Clean up stale issues in repo hdresearch/hermes-agent..."
+        promptLabel: "GitHub Admin Task",
+        promptPlaceholder: "e.g., List open issues in hdresearch/hermes-agent..."
     },
     windmill: {
         name: "Custom Task",
@@ -266,8 +266,7 @@ class Mod extends shapez.Mod {
         // OVERRIDE LEVEL DEFINITIONS FOR HERMES
         // ====================================================================
         
-        // Override generateLevelsForVariant to use our custom levels
-        // Each level requires only 1 shape to pass (instead of 10-30)
+        // Custom Hermes levels - each requires only 1 shape
         const hermesLevels = [
             // Level 1: Red Square (Browser Automation)
             {
@@ -301,13 +300,16 @@ class Mod extends shapez.Mod {
             },
         ];
         
-        // Replace the level generation function
-        if (shapez.generateLevelsForVariant) {
-            const originalGenerate = shapez.generateLevelsForVariant;
-            shapez.generateLevelsForVariant = function(app) {
+        // Store levels for use in game mode override
+        this.hermesLevels = hermesLevels;
+        const modRef = this;
+        
+        // Override the RegularGameMode to use our custom levels
+        if (shapez.RegularGameMode) {
+            this.modInterface.replaceMethod(shapez.RegularGameMode, "getLevelDefinitions", function() {
                 console.log("[Hermes] Using custom Hermes levels");
-                return hermesLevels;
-            };
+                return modRef.hermesLevels;
+            });
         }
         
         // ====================================================================
@@ -1206,12 +1208,28 @@ class Mod extends shapez.Mod {
         overlay.style.display = "block";
         dialog.style.display = "block";
         input.focus();
+        
+        // Pause the game while dialog is open
+        if (this.root && this.root.time) {
+            this.wasGamePaused = this.root.time.getIsPaused();
+            if (!this.wasGamePaused) {
+                this.root.time.performPause();
+                console.log("[Hermes] Game paused for prompt dialog");
+            }
+        }
     }
     
     hidePromptDialog() {
         document.getElementById("hermes-prompt-dialog").style.display = "none";
         document.getElementById("hermes-dialog-overlay").style.display = "none";
         this.currentDialogEntity = null;
+        
+        // Resume the game if we paused it
+        if (this.root && this.root.time && !this.wasGamePaused) {
+            this.root.time.performResume();
+            console.log("[Hermes] Game resumed after prompt dialog");
+        }
+        this.wasGamePaused = false;
     }
     
     // ========================================================================
