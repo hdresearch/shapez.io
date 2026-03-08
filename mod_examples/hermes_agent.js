@@ -1236,22 +1236,35 @@ class Mod extends shapez.Mod {
     // RESPONSE DISPLAY (Toast notifications)
     // ========================================================================
     
+    // Message history for scrolling through previous messages
+    messageHistory = [];
+    historyPanelVisible = false;
+    
     showResponse(message, type) {
         type = type || "info";
         
-        this.responseQueue.push({
+        const entry = {
             message: message,
             type: type,
             time: Date.now(),
             duration: type === "ai" ? 10000 : 4000
-        });
+        };
         
-        // Keep only last 5
+        this.responseQueue.push(entry);
+        
+        // Add to history (keep last 50)
+        this.messageHistory.push(entry);
+        while (this.messageHistory.length > 50) {
+            this.messageHistory.shift();
+        }
+        
+        // Keep only last 5 in active queue
         while (this.responseQueue.length > 5) {
             this.responseQueue.shift();
         }
         
         this.renderResponses();
+        this.updateHistoryButton();
     }
     
     updateResponses() {
@@ -1276,10 +1289,10 @@ class Mod extends shapez.Mod {
         
         if (this.responseQueue.length === 0) return;
         
-        // Create container
+        // Create container - bottom RIGHT
         container = document.createElement("div");
         container.id = "hermes-responses";
-        container.style.cssText = "position:fixed;bottom:20px;left:20px;z-index:99998;max-width:500px;pointer-events:none;";
+        container.style.cssText = "position:fixed;bottom:70px;right:20px;z-index:99998;max-width:450px;pointer-events:none;";
         
         const colors = {
             ai: "#27ae60",
@@ -1302,5 +1315,103 @@ class Mod extends shapez.Mod {
         }
         
         document.body.appendChild(container);
+    }
+    
+    updateHistoryButton() {
+        let btn = document.getElementById("hermes-history-btn");
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "hermes-history-btn";
+            btn.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:99999;background:linear-gradient(135deg,#4ecdc4,#44a08d);border:none;border-radius:50%;width:44px;height:44px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:18px;display:flex;align-items:center;justify-content:center;";
+            btn.innerHTML = "📜";
+            btn.title = "Message History";
+            
+            const mod = this;
+            btn.onclick = function() {
+                mod.toggleHistoryPanel();
+            };
+            
+            document.body.appendChild(btn);
+        }
+        
+        // Update badge count
+        const count = this.messageHistory.length;
+        btn.innerHTML = count > 0 ? "📜<span style='position:absolute;top:-5px;right:-5px;background:#e74c3c;color:#fff;font-size:10px;padding:2px 5px;border-radius:10px;'>" + count + "</span>" : "📜";
+    }
+    
+    toggleHistoryPanel() {
+        this.historyPanelVisible = !this.historyPanelVisible;
+        
+        let panel = document.getElementById("hermes-history-panel");
+        
+        if (!this.historyPanelVisible) {
+            if (panel) panel.remove();
+            return;
+        }
+        
+        if (!panel) {
+            panel = document.createElement("div");
+            panel.id = "hermes-history-panel";
+            panel.style.cssText = "position:fixed;bottom:80px;right:20px;width:400px;max-height:400px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #4ecdc4;border-radius:12px;z-index:99999;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:sans-serif;";
+            
+            // Header
+            const header = document.createElement("div");
+            header.style.cssText = "padding:12px 16px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;";
+            header.innerHTML = '<span style="color:#fff;font-weight:600;">Message History</span><button id="hermes-history-close" style="background:none;border:none;color:#888;cursor:pointer;font-size:18px;">✕</button>';
+            panel.appendChild(header);
+            
+            // Content
+            const content = document.createElement("div");
+            content.id = "hermes-history-content";
+            content.style.cssText = "max-height:340px;overflow-y:auto;padding:8px;";
+            panel.appendChild(content);
+            
+            document.body.appendChild(panel);
+            
+            const mod = this;
+            document.getElementById("hermes-history-close").onclick = function() {
+                mod.toggleHistoryPanel();
+            };
+        }
+        
+        this.renderHistoryPanel();
+    }
+    
+    renderHistoryPanel() {
+        const content = document.getElementById("hermes-history-content");
+        if (!content) return;
+        
+        const colors = {
+            ai: "#27ae60",
+            success: "#2ecc71",
+            warning: "#f1c40f",
+            error: "#e74c3c",
+            loading: "#3498db",
+            info: "#34495e"
+        };
+        
+        content.innerHTML = "";
+        
+        if (this.messageHistory.length === 0) {
+            content.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">No messages yet</div>';
+            return;
+        }
+        
+        // Show messages in reverse order (newest first)
+        for (let i = this.messageHistory.length - 1; i >= 0; i--) {
+            const r = this.messageHistory[i];
+            const timeStr = new Date(r.time).toLocaleTimeString();
+            
+            const item = document.createElement("div");
+            item.style.cssText = "background:" + (colors[r.type] || colors.info) + ";color:#fff;padding:10px 12px;border-radius:6px;margin-bottom:6px;font-size:13px;word-wrap:break-word;";
+            item.innerHTML = '<div style="font-size:10px;opacity:0.7;margin-bottom:4px;">' + timeStr + '</div>' + this.escapeHtml(r.message);
+            content.appendChild(item);
+        }
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
