@@ -116,9 +116,7 @@ export class MainMenuState extends GameState {
 
         return `
             <div class="topButtons">
-                <!-- Language chooser hidden for Hermes Agent -->
-
-                <button class="settingsButton" aria-label="Settings"></button>
+                <!-- Language chooser and settings hidden for Hermes Agent -->
                 ${showExitAppButton ? `<button class="exitAppButton" aria-label="Exit App"></button>` : ""}
             </div>
 
@@ -220,9 +218,7 @@ export class MainMenuState extends GameState {
                                 .join("")}
                             </div>
 
-                            <div class="dlcHint">
-                                ${T.mainMenu.mods.warningPuzzleDLC}
-                            </div>
+                            <!-- DLC warning hidden for Hermes Agent -->
 
 
                         </div>
