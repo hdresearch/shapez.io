@@ -116,11 +116,7 @@ export class MainMenuState extends GameState {
 
         return `
             <div class="topButtons">
-                ${
-                    showLanguageIcon
-                        ? `<button aria-label="Choose Language" class="languageChoose" data-languageicon="${this.app.settings.getLanguage()}"></button>`
-                        : ""
-                }
+                <!-- Language chooser hidden for Hermes Agent -->
 
                 <button class="settingsButton" aria-label="Settings"></button>
                 ${showExitAppButton ? `<button class="exitAppButton" aria-label="Exit App"></button>` : ""}
@@ -257,72 +253,11 @@ export class MainMenuState extends GameState {
 
                 <div class="footer ${showExternalLinks ? "" : "noLinks"} ">
 
-                    <div class="socialLinks">
-                    ${
-                        showExternalLinks && !G_IS_STEAM_DEMO
-                            ? `<a class="patreonLink boxLink" target="_blank">
-                                    <span class="thirdpartyLogo patreonLogo"></span>
-                                    <span class="label">Patreon</span>
-                                </a>`
-                            : ""
-                    }
-                    ${
-                        showExternalLinks && (!G_IS_STANDALONE || G_IS_STEAM_DEMO)
-                            ? `<a class="steamLinkSocial boxLink" target="_blank">
-                                    <span class="thirdpartyLogo steamLogo"></span>
-                                    <span class="label">steam</span>
-                                </a>`
-                            : ""
-                    }
-                    ${
-                        showExternalLinks && !G_IS_STEAM_DEMO
-                            ? `
-                        <a class="githubLink boxLink" target="_blank">
-                            <span class="thirdpartyLogo githubLogo"></span>
-                            <span class="label">GitHub</span>
-                        </a>`
-                            : ""
-                    }
-
-
-                    ${
-                        showDiscordLink
-                            ? `<a class="discordLink boxLink" target="_blank">
-                                    <span class="thirdpartyLogo  discordLogo"></span>
-                                    <span class="label">Discord</span>
-                                </a>`
-                            : ""
-                    }
-
-                    ${
-                        showExternalLinks
-                            ? `<a class="redditLink boxLink" target="_blank">
-                                    <span class="thirdpartyLogo redditLogo"></span>
-                                    <span class="label">Reddit</span>
-                                </a>`
-                            : ""
-                    }
-
-                    ${
-                        /*
-                        showExternalLinks
-                            ? `<a class="twitterLink boxLink" target="_blank">
-                                    <span class="thirdpartyLogo twitterLogo"></span>
-                                    <span class="label">Twitter</span>
-                                </a>`
-                            : ""
-                            */
-                        ""
-                    }
-
-
-                    </div>
+                    <!-- Social links hidden for Hermes Agent -->
+                    <div class="socialLinks" style="display: none;"></div>
 
                     <div class="footerGrow">
-                        ${showExternalLinks ? `<a class="changelog">${T.changelog.title}</a>` : ""}
-
-                        ${showExternalLinks ? `<a class="helpTranslate">${T.mainMenu.helpTranslate}</a>` : ""}
-
+                        <!-- Changelog and help translate hidden for Hermes Agent -->
                     </div>
                         <div class="author"><a class="producerLink" href="https://tobspr.io" target="_blank" title="tobspr Games" rel="follow">
                         <img src="${cachebust("res/logo-tobspr-games.svg")}" alt="tobspr Games"
