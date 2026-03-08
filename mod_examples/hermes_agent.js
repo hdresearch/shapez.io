@@ -241,22 +241,22 @@ class Mod extends shapez.Mod {
             storyRewards: {
                 // Level 1 complete: Browser automation works
                 reward_cutter_and_trash: {
-                    title: "✅ Level 1: Web Browser Agent",
+                    title: "Web Browser Agent",
                     desc: "Excellent! You've set up a web browsing agent. Red squares spawn Vers VMs with Playwright installed. Claude helps navigate and automate browser tasks.",
                 },
                 // Level 2: iMessage (Circle + Red) 
                 reward_rotater: {
-                    title: "📱 Level 2: iMessage Agent", 
+                    title: "iMessage Agent", 
                     desc: "Now connect <strong>Circles</strong> to the <strong>Red</strong> painter!<br><br>Circles spawn local agents with iMessage read tools. Double-click to set an instruction like 'Read my latest messages'.",
                 },
                 // Level 3: GitHub Admin (Star + Red)
                 reward_painter: {
-                    title: "🐙 Level 3: GitHub Admin Agent",
+                    title: "GitHub Admin",
                     desc: "Connect <strong>Stars</strong> to the <strong>Red</strong> painter!<br><br>Stars spawn Apple Containers with GITHUB_API_KEY. Set instructions like 'List open issues in hdresearch/hermes-agent'.",
                 },
                 // Level 4: Cloud Code (any shape + Yellow)
                 reward_mixer: {
-                    title: "☁️ Level 4: Cloud Code Agent",
+                    title: "Cloud Code Agent",
                     desc: "Use the <strong>Color Mixer</strong> to combine Green + Red = <strong>Yellow</strong>!<br><br>Yellow shapes spawn Vers VMs with pi (coding agent). Full cloud-based development environment!",
                 },
             },
