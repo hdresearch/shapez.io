@@ -49,10 +49,10 @@ const SHAPE_TASK_TYPES = {
     circle: {
         name: "iMessage Task",
         icon: "💬",
-        description: "Local agent with iMessage read tools via AppleScript (read-only for now)",
+        description: "Local agent with iMessage tools via AppleScript (read & send messages)",
         backend: "local",
-        promptLabel: "iMessage Task (Read-Only)",
-        promptPlaceholder: "e.g., Read my latest messages from Mom..."
+        promptLabel: "iMessage Task",
+        promptPlaceholder: "e.g., Read my latest messages from Mom, or Send a message to..."
     },
     star: {
         name: "GitHub Admin Task", 
@@ -259,7 +259,7 @@ class Mod extends shapez.Mod {
                 // Level 2: iMessage (Circle + Red) 
                 reward_rotater: {
                     title: "iMessage Agent", 
-                    desc: "Now connect <strong>Circles</strong> to the <strong>Red</strong> painter!<br><br>Circles spawn local agents with iMessage read tools. Double-click to set an instruction like 'Read my latest messages'.",
+                    desc: "Now connect <strong>Circles</strong> to the <strong>Red</strong> painter!<br><br>Circles spawn local agents with iMessage tools (read & send). Double-click to set an instruction like 'Read my latest messages' or 'Send a message to...'.",
                 },
                 // Level 3: GitHub Admin (Star + Red)
                 reward_painter: {
